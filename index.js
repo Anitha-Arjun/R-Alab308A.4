@@ -1,4 +1,4 @@
-// import * as Carousel from "./Carousel.js";
+import * as Carousel from "./Carousel.js";
 // import axios from "axios";
 
 // The breed selection input element.
@@ -23,8 +23,12 @@ const API_KEY =
  * This function should execute immediately.
  */
 
+document.addEventListener("DOMContentLoaded", initialLoad);
+
 async function initialLoad() {
-  const res = await fetch("https://api.thecatapi.com/v1/breeds");
+  const res = await fetch("https://api.thecatapi.com/v1/breeds", {
+    headers: { "x-api-key": API_KEY },
+  });
   const data = await res.json();
   console.log(data);
   data.forEach((obj) => {
@@ -33,10 +37,10 @@ async function initialLoad() {
     option.setAttribute("value", obj.id);
     breedSelect.appendChild(option);
   });
+  axiosHandleBreedSelect();
 }
-document.onload = initialLoad();
-document.addEventListener("DOMContentLoaded", initialLoad);
-
+//Calls the function as soon as the page loads
+//document.onload = initialLoad();
 /**
  * 2. Create an event handler for breedSelect that does the following:
  * - Retrieve information on the selected breed from the cat API using fetch().
@@ -52,7 +56,56 @@ document.addEventListener("DOMContentLoaded", initialLoad);
  * - Add a call to this function to the end of your initialLoad function above to create the initial carousel.
  */
 
-// https://api.thecatapi.com/v1/images/search?breed_ids={breed.id}
+//Create an event handler for breedSelect that does the following:
+breedSelect.addEventListener("change", handleBreedSelect);
+
+async function handleBreedSelect() {
+  console.log(breedSelect.value);
+  // Retrieve information on the selected breed from the cat API using fetch(). Fetching data by breed id
+  const res = await fetch(
+    `https://api.thecatapi.com/v1/images/search?limit=10&breed_ids=${breedSelect.value}`,
+    {
+      headers: { "x-api-key": API_KEY },
+    }
+  );
+
+  const breedsData = await res.json();
+  console.log(breedsData);
+  //Each new selection should clear, re-populate, and restart the Carousel.
+  // Carousel.clear()
+
+  //Clear the Carousel if it has any images
+  if (document.getElementById("carouselInner").firstChild) {
+    Carousel.clear();
+  }
+
+  //For each object in the response array, create a new element for the carousel. create and append images to carousel
+  breedsData.forEach((item) => {
+    const carouselElement = Carousel.createCarouselItem(
+      item.url,
+      item.breeds[0].name,
+      item.id
+    );
+
+    //Append each of these new elements to the carousel.
+    Carousel.appendCarousel(carouselElement);
+  });
+
+  //check if there is a child element on the infoDump div
+  if (infoDump.firstChild) {
+    infoDump.firstChild.remove();
+  }
+  //TODO: be more creative
+  //create a new element for the info
+  const p = document.createElement("p");
+  //Use the other data you have been given to create an informational section within the infoDump element.
+  p.textContent = breedsData[0].breeds[0].description;
+  infoDump.appendChild(p);
+  //TODO
+  Carousel.start();
+}
+// handleBreedSelect();
+
 
 /**
  * 3. Fork your own sandbox, creating a new one named "JavaScript Axios Lab."
@@ -73,6 +126,88 @@ document.addEventListener("DOMContentLoaded", initialLoad);
  * - As an added challenge, try to do this on your own without referencing the lesson material.
  */
 
+//Set default headers using axios
+axios.default.header.common["x-api-key"] = API_KEY;
+
+async function axiosHandleBreedSelect() {
+  console.log(breedSelect.value);
+
+  const res = await axios.get(
+    `https://api.thecatapi.com/v1/images/search?limit=10&breed_ids=${breedSelect.value}`,
+    {
+      onDownloadProgress: updateProgess,
+    }
+  );
+
+  // parsed json data
+  const breedsData = res.data;
+  console.log(breedsData);
+
+  // clear the carousel if it has any images
+  if (document.getElementById("carouselInner").firstChild) {
+    Carousel.clear();
+  }
+
+  // create and append images to carousel
+  breedsData.forEach((item) => {
+    const element = Carousel.createCarouselItem(
+      item.url,
+      item.breeds[0].name,
+      item.id
+    );
+    Carousel.appendCarousel(element);
+  });
+
+  // check if there is a child element on the infoDump div
+  if (infoDump.firstChild) {
+    infoDump.firstChild.remove();
+  }
+
+  //TODO: be more creative
+  // create a new element for the info
+  const p = document.createElement("p");
+  p.textContent = breedsData[0].breeds[0].description;
+  infoDump.appendChild(p);
+
+  // TODO
+  Carousel.start();
+}
+
+//Axios Interceptors
+axios.interceptors.request.use((request) => {
+  request.metadata = request.metadata || {};
+  request.metadata.startTime = new Date().getTime();
+  console.log("Sending request");
+
+  //reset the progressbar to 0
+  progressBar.style.width = "0px";
+  return request;
+});
+
+axios.interceptors.response.use(
+  (response) => {
+    response.config.metadata.endTime = new Date().getTime();
+    response.config.metadata.durationInMS =
+      response.config.metadata.endTime - response.config.metadata.startTime;
+    console.log("Response Completed..");
+
+    console.log(
+      `Request took ${response.config.metadata.durationInMS} milliseconds.`
+    );
+    return response;
+  },
+  (error) => {
+    error.config.metadata.endTime = new Date().getTime();
+    error.config.metadata.durationInMS =
+      error.config.metadata.endTime - error.config.metadata.startTime;
+
+    console.log(
+      `Request took ${error.config.metadata.durationInMS} milliseconds.`
+    );
+    throw error;
+  }
+);
+
 /**
  * 6. Next, we'll create a progress bar to indicate the request is in progress.
  * - The progressBar element has already been created for you.
@@ -88,6 +223,14 @@ document.addEventListener("DOMContentLoaded", initialLoad);
  *   once or twice per request to this API. This is still a concept worth familiarizing yourself
  *   with for future projects.
  */
+
+function updateProgess(progressEvent) {
+  console.log(progressEvent);
+
+  if (progressEvent.lengthComputable) {
+    progressBar.style.width = progressEvent.total + "100px";
+  }
+}
 
 /**
  * 7. As a final element of progress indication, add the following to your axios interceptors:
