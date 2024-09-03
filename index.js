@@ -38,6 +38,7 @@ async function initialLoad() {
     breedSelect.appendChild(option);
   });
   axiosHandleBreedSelect();
+  Carousel.start();
 }
 //Calls the function as soon as the page loads
 //document.onload = initialLoad();
@@ -57,7 +58,7 @@ async function initialLoad() {
  */
 
 //Create an event handler for breedSelect that does the following:
-breedSelect.addEventListener("change", handleBreedSelect);
+breedSelect.addEventListener("change", axiosHandleBreedSelect);
 
 async function handleBreedSelect() {
   console.log(breedSelect.value);
@@ -81,14 +82,14 @@ async function handleBreedSelect() {
 
   //For each object in the response array, create a new element for the carousel. create and append images to carousel
   breedsData.forEach((item) => {
-    const carouselElement = Carousel.createCarouselItem(
+    const Element = Carousel.createCarouselItem(
       item.url,
       item.breeds[0].name,
       item.id
     );
 
     //Append each of these new elements to the carousel.
-    Carousel.appendCarousel(carouselElement);
+    Carousel.appendCarousel(Element);
   });
 
   //check if there is a child element on the infoDump div
@@ -106,7 +107,6 @@ async function handleBreedSelect() {
 }
 // handleBreedSelect();
 
-
 /**
  * 3. Fork your own sandbox, creating a new one named "JavaScript Axios Lab."
  */
@@ -119,6 +119,7 @@ async function handleBreedSelect() {
  *   by setting a default header with your API key so that you do not have to
  *   send it manually with all of your requests! You can also set a default base URL!
  */
+
 /**
  * 5. Add axios interceptors to log the time between request and response to the console.
  * - Hint: you already have access to code that does this!
@@ -126,8 +127,8 @@ async function handleBreedSelect() {
  * - As an added challenge, try to do this on your own without referencing the lesson material.
  */
 
-//Set default headers using axios
-axios.default.header.common["x-api-key"] = API_KEY;
+// set default headers
+axios.defaults.headers.common["x-api-key"] = API_KEY;
 
 async function axiosHandleBreedSelect() {
   console.log(breedSelect.value);
@@ -163,13 +164,11 @@ async function axiosHandleBreedSelect() {
     infoDump.firstChild.remove();
   }
 
-  //TODO: be more creative
   // create a new element for the info
   const p = document.createElement("p");
   p.textContent = breedsData[0].breeds[0].description;
   infoDump.appendChild(p);
 
-  // TODO
   Carousel.start();
 }
 
@@ -181,16 +180,21 @@ axios.interceptors.request.use((request) => {
 
   //reset the progressbar to 0
   progressBar.style.width = "0px";
+
+  //set the cursor to 'progress or loading
+  document.body.style.cursor = "progress";
   return request;
 });
 
+//Response Interceptor
 axios.interceptors.response.use(
   (response) => {
     response.config.metadata.endTime = new Date().getTime();
     response.config.metadata.durationInMS =
       response.config.metadata.endTime - response.config.metadata.startTime;
     console.log("Response Completed..");
-
+    //sets the body cursor to default
+    document.body.style.cursor = "";
     console.log(
       `Request took ${response.config.metadata.durationInMS} milliseconds.`
     );
@@ -228,7 +232,7 @@ function updateProgess(progressEvent) {
   console.log(progressEvent);
 
   if (progressEvent.lengthComputable) {
-    progressBar.style.width = progressEvent.total + "100px";
+    progressBar.style.width = progressEvent.total + "px";
   }
 }
 
@@ -249,7 +253,42 @@ function updateProgess(progressEvent) {
  * - You can call this function by clicking on the heart at the top right of any image.
  */
 export async function favourite(imgId) {
-  // your code here
+  console.log(imgId);
+  // axios
+  //   .get("https://api.thecatapi.com/v1/favourites")
+  //   .then((res) =>
+  //     res.data.forEach((i) =>
+  //       axios.delete(`https://api.thecatapi.com/v1/favourites/${i.id}`)
+  //     )
+  //   );
+
+  //GET all favourites
+  axios.get("https://api.thecatapi.com/v1/favourites").then((res) => {
+    console.log("FAVS =>", res.data);
+    let deleted = false;
+    //looop over the item
+    res.data.forEach((item) => {
+      //if the image is favourite the delete
+      if (item.image_id === imgId) {
+        console.log(item.image_id, imgId);
+        //delete
+        deleted = true;
+        axios
+          .delete(`https://api.thecatapi.com/v1/favourites/${item.id}`)
+          .then((res) => console.log(res));
+      }
+    });
+
+    if (!deleted) {
+      //add
+      axios
+        .post("https://api.thecatapi.com/v1/favourites", {
+          image_id: imgId,
+          sub_id: "abe",
+        })
+        .then((res) => console.log(res.data));
+    }
+  });
 }
 
 /**
@@ -261,7 +300,24 @@ export async function favourite(imgId) {
  *    If that isn't in its own function, maybe it should be so you don't have to
  *    repeat yourself in this section.
  */
+getFavouritesBtn.addEventListener("click", getFavourites);
 
+function getFavourites() {
+  axios.get("https://api.thecatapi.com/v1/favourites").then((res) => {
+    console.log("All FAVS:", res.data);
+    Carousel.clear();
+    res.data.forEach((item) => {
+      const element = Carousel.createCarouselItem(
+        item.image.url,
+        item.image_id,
+        item.image.id
+      );
+
+      Carousel.appendCarousel(element);
+    });
+  });
+  Carousel.start();
+}
 /**
  * 10. Test your site, thoroughly!
  * - What happens when you try to load the Malayan breed?
